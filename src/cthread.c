@@ -7,7 +7,7 @@
 int schedulerIsInitialized = 0;
 int schedulerNextTid = 1;
 
-ucontext_t terminatedThreadContext;
+ucontext_t terminateContext;;
 FILA2 readyQueue;
 TCB_t* threadUsingCPU;
 
@@ -16,17 +16,35 @@ void SchedulerInitialize(void){
 
     CreateFila2(&readyQueue);
 
-    createMainContext();
+    createMainTCB();
     schedulerIsInitialized = 1;
 }
 
-void createMainContext(void){
+void createMainTCB(void){
     TCB_t* mainTCB = malloc(sizeof(TCB_t));
     mainTCB->tid = 0;
     mainTCB->state = PROCST_EXEC;
     mainTCB->ticket = Random2();
     printf("ticket da main: %d\n", mainTCB->ticket);
     threadUsingCPU = mainTCB;
+}
+
+void createTerminateContext(void){
+    getcontext(&terminateContext);
+
+    terminateContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endere?o de in?cio da pilha    */
+    terminateContext.uc_stack.ss_size = SIGSTKSZ; /*tamanho da pilha */
+
+    makecontext(&terminateContext, (void (*)(void)) terminateThread, 0);
+}
+
+void terminateThread(void){
+    printf("finalizando thread %d\n", threadUsingCPU->tid);
+    //<Checar se ha threads esperando o termino>
+    ucontext_t ctxt = threadUsingCPU->context;
+    free(ctxt.uc_stack.ss_sp);
+    free(threadUsingCPU);
+    dispatch();
 }
 
 void dispatch(void){
@@ -90,7 +108,7 @@ int ccreate (void* (*start)(void*), void *arg){
     ucontext_t newContext;
     getcontext(&newContext);
 
-    newContext.uc_link          = &terminatedThreadContext;      /* contexto a executar no t?rmino */
+    newContext.uc_link          = &terminateContext;      /* contexto a executar no t?rmino */
     newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endere?o de in?cio da pilha    */
     newContext.uc_stack.ss_size = SIGSTKSZ; /*tamanho da pilha */
 
