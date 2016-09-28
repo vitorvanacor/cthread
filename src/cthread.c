@@ -9,9 +9,9 @@
 int schedulerIsInitialized = 0;
 int schedulerNextTid = 1;
 
-ucontext_t terminateContext;;
+ucontext_t terminateContext;
 FILA2 readyQueue;
-TCB_t* threadUsingCPU;
+TCB_t* threadUsingCPU, mainTCB;
 
 TCB_t* getWinner() {
     int winnerTicket = NEW_TICKET;
@@ -77,7 +77,6 @@ void createTerminateContext(void){
 }
 
 void createMainTCB(void){
-    TCB_t* mainTCB = malloc(sizeof(TCB_t));
     mainTCB->tid = 0;
     mainTCB->state = PROCST_EXEC;
     mainTCB->ticket = NEW_TICKET;
