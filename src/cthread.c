@@ -40,15 +40,22 @@ TCB_t* getWinner() {
 
 void dispatch(void) {
     //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
+    int flag = 0;
     printf("\nDispatcher()\n");
-    TCB_t* winnerTCB = getWinner();
+    ucontext_t currentContext;
+    getcontext(&currentContext);
+    threadUsingCPU->context = currentContext;
+    if (flag == 0){
+        flag = 1;
+        TCB_t* winnerTCB = getWinner();
 
-    findTCB(winnerTCB, &readyQueue);
-    DeleteAtIteratorFila2(&readyQueue);
+        findTCB(winnerTCB, &readyQueue);
+        DeleteAtIteratorFila2(&readyQueue);
 
-    threadUsingCPU = winnerTCB;
-    ucontext_t ctxt = winnerTCB->context;
-    setcontext(&ctxt);
+        threadUsingCPU = winnerTCB;
+        ucontext_t ctxt = winnerTCB->context;
+        setcontext(&ctxt);
+    }
 }
 
 void terminateThread(void){
@@ -137,21 +144,46 @@ int ccreate (void* (*start)(void*), void *arg){
 
 int cyield() {
     printf("\nYield(): Thread %d abdicou da CPU\n",threadUsingCPU->tid);
+    AppendFila2(&readyQueue, (void *)threadUsingCPU);
+    dispatch();
     int flag = 0;
-    ucontext_t currentContext;
-    getcontext(&currentContext);
-    threadUsingCPU->context = currentContext;
-    if (flag==0){
-        flag = 1;
-        AppendFila2(&readyQueue, (void *)threadUsingCPU);
-        dispatch();
-    }
+    
 }
 
 int cjoin(int tid){
     //<coloca tid atual como esperando por termino da tid recebida no parametro>
     //bloqueia thread atual
     dispatch();
+}
+
+int csem_init (csem_t *sem, int count){
+    sem->count = count;
+    PFILA2 semQueue = malloc(sizeof(FILA));
+    CreateFila2(&semQueue);
+    sem->fila = semQueue;
+    return 0;
+}
+
+int cwait (csem_t *sem){
+    sem->count = sem->count - 1;
+    if (sem->count < 0){
+        PFILA2 semQueue = sem->fila;
+        AppendFila2(semQueue, (void *)threadUsingCPU);
+        dispatch();
+    }
+    return 0;
+}
+
+int csignal (csem_t *sem){
+    sem->count = sem->count + 1;
+    if (sem->count <= 0){
+        PFILA2 semQueue = sem->fila;
+        FirstFila2(semQueue);
+        TCB_t* firstTCB = (TCB_t*)GetAtIteratorFila2(semQueue);
+        DeleteAtIteratorFila2(&semQueue);
+        AppendFila2(readyQueue, (void *)firstTCB);
+    }
+    return 0;
 }
 
 int cidentify(char *name, int size) {
