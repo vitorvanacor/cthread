@@ -12,6 +12,12 @@ int schedulerNextTid = 1;
 ucontext_t terminateContext;
 FILA2 readyQueue;
 TCB_t* threadUsingCPU, mainTCB;
+FILA2 blockedQueue;
+
+typedef struct {
+    int		waitedTid; 		// identificador da thread sendo esperada
+	TCB_t*		thread; 		// thread
+} ThreadJoin;
 
 TCB_t* getWinner() {
     int winnerTicket = NEW_TICKET;
@@ -58,9 +64,32 @@ void dispatch(void) {
     }
 }
 
+void broadcastThreadEnd(int tid) {
+    ThreadJoin* currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+    if (!currentThreadJoin){
+        return; //fila vazia
+    }
+
+    if(currentThreadJoin->waitedTid == tid) {
+        currentThreadJoin->thread->state = PROCST_APTO;
+        AppendFila2(&readyQueue, (void *)currentThreadJoin->thread);
+        return;
+    }
+
+    while(NextFila2(&readyQueue) != 0) {
+        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+
+        if(currentThreadJoin->waitedTid == tid) {
+            currentThreadJoin->thread->state = PROCST_APTO;
+            AppendFila2(&readyQueue, (void *)currentThreadJoin->thread);
+            return;
+        }
+    }
+}
+
 void terminateThread(void){
     printf("\nFinalizando thread %d\n", threadUsingCPU->tid);
-    //<Checar se ha threads esperando o termino>
+    broadcastThreadEnd(threadUsingCPU->tid);
     ucontext_t ctxt = threadUsingCPU->context;
     free(ctxt.uc_stack.ss_sp);
     free(threadUsingCPU);
@@ -88,6 +117,7 @@ void SchedulerInitialize(void){
     if (schedulerIsInitialized) return;
 
     CreateFila2(&readyQueue);
+    CreateFila2(&blockedQueue);
 
     createMainTCB();
     schedulerIsInitialized = 1;
@@ -119,9 +149,11 @@ int ccreate (void* (*start)(void*), void *arg){
     ucontext_t newContext;
     getcontext(&newContext);
 
+    char stack[SIGSTKSZ];
+
     newContext.uc_link          = &terminateContext;      /* contexto a executar no t?rmino */
-    newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endere?o de in?cio da pilha    */
-    newContext.uc_stack.ss_size = SIGSTKSZ; /*tamanho da pilha */
+    newContext.uc_stack.ss_sp   = stack;         /* endere?o de in?cio da pilha    */
+    newContext.uc_stack.ss_size = SIGSTKSZ;                  /*tamanho da pilha */
 
     /* Define a funcao a ser executada pelo novo fluxo de controle,
      * forne a quantidade (0, no caso) e os eventuais par?metros que cada fluxo
@@ -146,10 +178,17 @@ int cyield() {
     AppendFila2(&readyQueue, (void *)threadUsingCPU);
     dispatch();
     int flag = 0;
-    
+
 }
 
-int cjoin(int tid){
+int cjoin(int tid) {
+    printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
+    ThreadJoin* tjoin = malloc(sizeof(ThreadJoin));
+    tjoin->waitedTid = tid;
+    threadUsingCPU->state = PROCST_BLOQ;
+    tjoin->thread = threadUsingCPU;
+
+    AppendFila2(&blockedQueue, (void *)tjoin);
     //<coloca tid atual como esperando por termino da tid recebida no parametro>
     //bloqueia thread atual
     dispatch();
@@ -197,18 +236,22 @@ int cidentify(char *name, int size) {
 }
 
 void barber() {
+    int n;
     printf("\n----Entrou no barber\n");
+    for(n=0;n<4;n++) {
         cyield();
         printf("\n--Barber ganhou a cpu\n");
+    }
 
 }
 
 int main() {
     int tidBarber, n;
     tidBarber = ccreate (barber, (void *) NULL);
-    for(n=0;n<4;n++){
+    cjoin(tidBarber);
+    /*for(n=0;n<4;n++){
         cyield();
         printf("\n--Main ganhou a cpu, n=%d\n",n);
-    }
+    }*/
     printf("\nFim do programa\n");
 }
