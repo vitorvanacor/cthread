@@ -11,15 +11,6 @@ ucontext_t terminatedThreadContext;
 FILA2 readyQueue;
 TCB_t* threadUsingCPU;
 
-void SchedulerInitialize(void){
-    if (schedulerIsInitialized) return;
-
-    CreateFila2(&readyQueue);
-
-    createMainContext();
-    schedulerIsInitialized = 1;
-}
-
 void createMainContext(void){
     TCB_t* mainTCB = malloc(sizeof(TCB_t));
     mainTCB->tid = 0;
@@ -29,18 +20,13 @@ void createMainContext(void){
     threadUsingCPU = mainTCB;
 }
 
-void dispatch(void){
-    //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
-    printf("dispatcher acionado\n");
-    int winnerTicket = Random2();
-    TCB_t* winnerTCB = getWinner(winnerTicket);
-    printf("vencedor: thread %d\n",winnerTCB->tid);
-    findTCB(winnerTCB, &readyQueue);
-    DeleteAtIteratorFila2(&readyQueue);
-    
-    threadUsingCPU = winnerTCB;
-    ucontext_t ctxt = winnerTCB->context;
-    setcontext(&ctxt);
+void SchedulerInitialize(void){
+    if (schedulerIsInitialized) return;
+
+    CreateFila2(&readyQueue);
+
+    createMainContext();
+    schedulerIsInitialized = 1;
 }
 
 TCB_t* getWinner(int winnerTicket){
@@ -64,6 +50,20 @@ TCB_t* getWinner(int winnerTicket){
         printf("thread %d com ticket %d eh (agora) o mais proximo do sorteado %d\n",closestTCB->tid,closestTCB->ticket,winnerTicket);
     }
     return closestTCB;
+}
+
+void dispatch(void){
+    //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
+    printf("dispatcher acionado\n");
+    int winnerTicket = Random2();
+    TCB_t* winnerTCB = getWinner(winnerTicket);
+    printf("vencedor: thread %d\n",winnerTCB->tid);
+    findTCB(winnerTCB, &readyQueue);
+    DeleteAtIteratorFila2(&readyQueue);
+
+    threadUsingCPU = winnerTCB;
+    ucontext_t ctxt = winnerTCB->context;
+    setcontext(&ctxt);
 }
 
 int findTCB(TCB_t* tcb, PFILA2 fila){
@@ -152,7 +152,6 @@ void barber() {
 
 int main() {
     int tidBarber, n;
-    getcontext(&testContext);
     tidBarber = ccreate (barber, (void *) NULL);
     printf("criou thread com tid %d\n", tidBarber);
     for(n=0;n<4;n++){
