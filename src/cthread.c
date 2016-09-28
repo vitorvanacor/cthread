@@ -1,13 +1,15 @@
-int schedulerIsInitialized = 0;
-int schedulerNextTid = 1;
-
+#include <stdio.h>
+#include <stdlib.h>
 #include <ucontext.h>
 #include "../include/support.h"
 #include "../include/cdata.h"
 
+int schedulerIsInitialized = 0;
+int schedulerNextTid = 1;
+
 ucontext_t terminatedThreadContext;
 FILA2 filaAptos;
-TCB_t* usingCPU;
+TCB_t* usingCPU = malloc(sizeof(TCB_t));
 
 
 void createMainContext(){
@@ -21,7 +23,7 @@ void createMainContext(){
 void SchedulerInitialize(void){
     if (schedulerIsInitialized) return;
 
-    createFila2(&filaAptos);
+    CreateFila2(&filaAptos);
 
     createMainContext();
 }
@@ -33,7 +35,7 @@ TCB_t* getWinner(int winnerTicket){
     if (!currentTCB) {
         //Fila de aptos vazia, tem que ver o que fazer
     }
-    while(currentTCB != filaAptos.last){
+    while(currentTCB != (TCB_t*)filaAptos.last){
         NextFila2(&filaAptos);
         currentTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
         if(currentTCB->ticket == closestTCB->ticket){
@@ -67,7 +69,7 @@ int findTCB(TCB_t* tcb, PFILA2 fila){
         return 0; //fila vazia
     }
     if (currentTCB == tcb) return 1;
-    while(currentTCB != fila->last){
+    while(currentTCB != (TCB_t*)fila->last){
         NextFila2(fila);
         currentTCB = (TCB_t*)GetAtIteratorFila2(fila);
         if (currentTCB == tcb) return 1;
@@ -107,16 +109,26 @@ int ccreate (void* (*start)(void*), void *arg){
 }
 
 void saveContext(void){
+    printf("a\n");
     ucontext_t currentContext;
+    printf("b\n");
     getcontext(&currentContext);
+    usingCPU->state = 3;
+    printf("c\n");
     usingCPU->context = currentContext;
+    printf("d\n");
 }
 
-int cyield(void){
+int cyield() {
+    printf("1\n");
     saveContext();
+    printf("2\n");
     AppendFila2(&filaAptos, (void *)usingCPU);
-    usingCPU->state = 1;
+    printf("3\n");
+    printf("%d\n", usingCPU->tid);
+    printf("4\n");
     dispatch();
+    printf("5\n");
 }
 
 int cjoin(int tid){
@@ -125,7 +137,7 @@ int cjoin(int tid){
     dispatch();
 }
 
-int cidentify (char *name, int size){
+int cidentify(char *name, int size) {
     char* names = "Vitor Vanacor 233207\nMatheus Pereira xxxxxx";
     int i;
 
@@ -136,6 +148,21 @@ int cidentify (char *name, int size){
     } while (names[i] != '\0');
 }
 
-int main(){
-    printf("teste");
+void barber() {
+    printf("jorge\n");
+    cyield();
+    printf("maicon\n");
+}
+
+int main() {
+    int tidBarber;
+    printf("teste\n");
+    SchedulerInitialize();
+    printf("jorginho\n");
+    TCB_t* marcos = malloc(sizeof(TCB_t));
+    marcos->tid = 3;
+    printf("%d\n\n\n",marcos->tid);
+    //tidBarber = ccreate (barber, (void *) NULL);
+    cyield();
+    //printf("criou, %d\n", tidBarber);
 }

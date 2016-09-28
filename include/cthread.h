@@ -20,5 +20,6 @@ int cjoin(int tid);
 int csem_init(csem_t *sem, int count);
 int cwait(csem_t *sem);
 int csignal(csem_t *sem);
+int cidentify (char *name, int size);
 
 #endif
