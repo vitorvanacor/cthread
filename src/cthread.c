@@ -3,6 +3,7 @@
 #include <ucontext.h>
 #include "../include/support.h"
 #include "../include/cdata.h"
+#include "../include/cthread.h"
 
 #define NEW_TICKET Random2() % 256
 
@@ -11,7 +12,8 @@ int schedulerNextTid = 1;
 
 ucontext_t terminateContext;
 FILA2 readyQueue;
-TCB_t* threadUsingCPU, mainTCB;
+TCB_t* threadUsingCPU;
+TCB_t mainTCB;
 FILA2 blockedQueue;
 
 typedef struct {
@@ -53,18 +55,18 @@ void dispatch(void) {
     threadUsingCPU->context = currentContext;
     if (flag == 0){
         flag = 1;
-        TCB_t* winnerTCB = getWinner();
+        threadUsingCPU = getWinner();
 
-        findTCB(winnerTCB, &readyQueue);
+        findTCB(threadUsingCPU, &readyQueue);
         DeleteAtIteratorFila2(&readyQueue);
 
-        threadUsingCPU = winnerTCB;
-        ucontext_t ctxt = winnerTCB->context;
+        ucontext_t ctxt = threadUsingCPU->context;
         setcontext(&ctxt);
     }
 }
 
 void broadcastThreadEnd(int tid) {
+    FirstFila2(&blockedQueue);
     ThreadJoin* currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
     if (!currentThreadJoin){
         return; //fila vazia
@@ -73,6 +75,7 @@ void broadcastThreadEnd(int tid) {
     if(currentThreadJoin->waitedTid == tid) {
         currentThreadJoin->thread->state = PROCST_APTO;
         AppendFila2(&readyQueue, (void *)currentThreadJoin->thread);
+        printf("\nThread %d voltou a estar apto\n", currentThreadJoin->thread->tid);
         return;
     }
 
@@ -82,6 +85,7 @@ void broadcastThreadEnd(int tid) {
         if(currentThreadJoin->waitedTid == tid) {
             currentThreadJoin->thread->state = PROCST_APTO;
             AppendFila2(&readyQueue, (void *)currentThreadJoin->thread);
+            printf("\nThread %d voltou a estar apto\n", currentThreadJoin->thread->tid);
             return;
         }
     }
@@ -106,11 +110,11 @@ void createTerminateContext(void){
 }
 
 void createMainTCB(void){
-    mainTCB->tid = 0;
-    mainTCB->state = PROCST_EXEC;
-    mainTCB->ticket = NEW_TICKET;
-    printf("\n---Main Thread criada com Ticket: %d\n", mainTCB->ticket);
-    threadUsingCPU = mainTCB;
+    mainTCB.tid = 0;
+    mainTCB.state = PROCST_EXEC;
+    mainTCB.ticket = NEW_TICKET;
+    printf("\n---Main Thread criada com Ticket: %d\n", mainTCB.ticket);
+    threadUsingCPU = &mainTCB;
 }
 
 void SchedulerInitialize(void){
@@ -149,10 +153,8 @@ int ccreate (void* (*start)(void*), void *arg){
     ucontext_t newContext;
     getcontext(&newContext);
 
-    char stack[SIGSTKSZ];
-
     newContext.uc_link          = &terminateContext;      /* contexto a executar no t?rmino */
-    newContext.uc_stack.ss_sp   = stack;         /* endere?o de in?cio da pilha    */
+    newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endere?o de in?cio da pilha    */
     newContext.uc_stack.ss_size = SIGSTKSZ;                  /*tamanho da pilha */
 
     /* Define a funcao a ser executada pelo novo fluxo de controle,
@@ -196,8 +198,8 @@ int cjoin(int tid) {
 
 int csem_init (csem_t *sem, int count){
     sem->count = count;
-    PFILA2 semQueue = malloc(sizeof(FILA));
-    CreateFila2(&semQueue);
+    PFILA2 semQueue = malloc(sizeof(FILA2));
+    CreateFila2((void *)&semQueue);
     sem->fila = semQueue;
     return 0;
 }
@@ -218,8 +220,8 @@ int csignal (csem_t *sem){
         PFILA2 semQueue = sem->fila;
         FirstFila2(semQueue);
         TCB_t* firstTCB = (TCB_t*)GetAtIteratorFila2(semQueue);
-        DeleteAtIteratorFila2(&semQueue);
-        AppendFila2(readyQueue, (void *)firstTCB);
+        DeleteAtIteratorFila2(semQueue);
+        AppendFila2(&readyQueue, (void *)firstTCB);
     }
     return 0;
 }
@@ -238,20 +240,21 @@ int cidentify(char *name, int size) {
 void barber() {
     int n;
     printf("\n----Entrou no barber\n");
-    for(n=0;n<4;n++) {
+    for(n=0;n<3;n++) {
         cyield();
-        printf("\n--Barber ganhou a cpu\n");
+        printf("\n--Barber ganhou a cpu, n=%d\n",n);
     }
 
 }
 
 int main() {
     int tidBarber, n;
-    tidBarber = ccreate (barber, (void *) NULL);
+    printf("Inicio do programa\n");
+    tidBarber = ccreate ((void *)barber, (void *) NULL);
     cjoin(tidBarber);
-    /*for(n=0;n<4;n++){
+    for(n=0;n<3;n++){
         cyield();
         printf("\n--Main ganhou a cpu, n=%d\n",n);
-    }*/
+    }
     printf("\nFim do programa\n");
 }
