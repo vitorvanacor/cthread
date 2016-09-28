@@ -7,44 +7,50 @@
 int schedulerIsInitialized = 0;
 int schedulerNextTid = 1;
 
-ucontext_t terminatedThreadContext, testContext;
-FILA2 filaAptos;
-TCB_t* usingCPU;
-
-
-
-void createMainContext(){
-    TCB_t* mainTCB = malloc(sizeof(TCB_t));
-    mainTCB->tid = 0;
-    mainTCB->state = PROCST_EXEC;
-    mainTCB->ticket = Random2();
-    printf("ticket da main: %d\n", mainTCB->ticket);
-    usingCPU = mainTCB;
-}
+ucontext_t terminatedThreadContext;
+FILA2 readyQueue;
+TCB_t* threadUsingCPU;
 
 void SchedulerInitialize(void){
     if (schedulerIsInitialized) return;
 
-    CreateFila2(&filaAptos);
+    CreateFila2(&readyQueue);
 
     createMainContext();
     schedulerIsInitialized = 1;
 }
 
+void createMainContext(void){
+    TCB_t* mainTCB = malloc(sizeof(TCB_t));
+    mainTCB->tid = 0;
+    mainTCB->state = PROCST_EXEC;
+    mainTCB->ticket = Random2();
+    printf("ticket da main: %d\n", mainTCB->ticket);
+    threadUsingCPU = mainTCB;
+}
+
+void dispatch(void){
+    //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
+    printf("dispatcher acionado\n");
+    int winnerTicket = Random2();
+    TCB_t* winnerTCB = getWinner(winnerTicket);
+    printf("vencedor: thread %d\n",winnerTCB->tid);
+    findTCB(winnerTCB, &readyQueue);
+    DeleteAtIteratorFila2(&readyQueue);
+    
+    threadUsingCPU = winnerTCB;
+    ucontext_t ctxt = winnerTCB->context;
+    setcontext(&ctxt);
+}
+
 TCB_t* getWinner(int winnerTicket){
     printf("ticket sorteado: %d\n", winnerTicket);
-    LastFila2(&filaAptos);
-    TCB_t* lastTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
-    FirstFila2(&filaAptos);
-    TCB_t* currentTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
+    FirstFila2(&readyQueue);
+    TCB_t* currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
     TCB_t* closestTCB = currentTCB;
-    if (!currentTCB) {
-        printf("fila vazia");
-    }
     printf("primeiro da fila: %d, ticket %d\n",currentTCB->tid,currentTCB->ticket);
-    while(currentTCB->tid != lastTCB->tid){
-        NextFila2(&filaAptos);
-        currentTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
+    while(NextFila2(&readyQueue) != 0){
+        currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
         printf("proximo da fila: %d, ticket %d\n",currentTCB->tid, currentTCB->ticket);
         if(currentTCB->ticket == closestTCB->ticket){
             if (currentTCB->tid < closestTCB->tid){
@@ -55,23 +61,9 @@ TCB_t* getWinner(int winnerTicket){
                 closestTCB = currentTCB;
             }
         }
-        printf("mais proximo: %d da thread %d\n",closestTCB->ticket,closestTCB->tid);
+        printf("thread %d com ticket %d eh (agora) o mais proximo do sorteado %d\n",closestTCB->tid,closestTCB->ticket,winnerTicket);
     }
     return closestTCB;
-}
-
-void dispatch(void){
-    //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
-    printf("dispatcher foi chamado\n");
-    int winnerTicket = Random2();
-    TCB_t* winnerTCB = getWinner(winnerTicket);
-    printf("vencedor: thread %d\n",winnerTCB->tid);
-    if(findTCB(winnerTCB, &filaAptos)){
-        DeleteAtIteratorFila2(&filaAptos);
-    }
-    usingCPU = winnerTCB;
-    ucontext_t ctxt = winnerTCB->context;
-    setcontext(&ctxt);
 }
 
 int findTCB(TCB_t* tcb, PFILA2 fila){
@@ -81,8 +73,7 @@ int findTCB(TCB_t* tcb, PFILA2 fila){
         return 0; //fila vazia
     }
     if (currentTCB == tcb) return 1;
-    while(currentTCB != (TCB_t*)fila->last){
-        NextFila2(fila);
+    while(NextFila2(fila) != 0){
         currentTCB = (TCB_t*)GetAtIteratorFila2(fila);
         if (currentTCB == tcb) return 1;
     }
@@ -99,40 +90,39 @@ int ccreate (void* (*start)(void*), void *arg){
     ucontext_t newContext;
     getcontext(&newContext);
 
-    newContext.uc_link          = &terminatedThreadContext;      /* contexto a executar no término */
-    newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endereço de início da pilha    */
+    newContext.uc_link          = &terminatedThreadContext;      /* contexto a executar no t?rmino */
+    newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endere?o de in?cio da pilha    */
     newContext.uc_stack.ss_size = SIGSTKSZ; /*tamanho da pilha */
 
-    /* Define a função a ser executada pelo novo fluxo de controle,
-     * forcene a quantidade (0, no caso) e os eventuais parâmetros que cada fluxo
-     * recebe (nenhum). O typecast (void (*)(void)) é só para evitar warnings na
-     * compilação e não afeta o comportamento da função */
+    /* Define a funcao a ser executada pelo novo fluxo de controle,
+     * forne a quantidade (0, no caso) e os eventuais par?metros que cada fluxo
+     * recebe (nenhum). O typecast (void (*)(void)) ? s? para evitar warnings na
+     * compilacao e nao afeta o comportamento da fun??o */
     makecontext(&newContext, (void (*)(void)) start, 0);
 
     TCB_t* newTCB = malloc(sizeof(TCB_t));
     newTCB->tid = schedulerNextTid++;
     newTCB->state = PROCST_APTO;
     newTCB->ticket = Random2();
-    printf("ticket da thread %d: %d\n",newTCB->tid,newTCB->ticket);
     newTCB->context = newContext;
+    printf("thread %d criada, ticket: %d\n",newTCB->tid,newTCB->ticket);
 
-    AppendFila2(&filaAptos, (void *)newTCB);
+    AppendFila2(&readyQueue, (void *)newTCB);
 
     return newTCB->tid;
 }
 
 int cyield() {
-    printf("thread %d abdicou da CPU\n",usingCPU->tid);
+    printf("thread %d abdicou da CPU\n",threadUsingCPU->tid);
     int flag = 0;
     ucontext_t currentContext;
     getcontext(&currentContext);
-    usingCPU->context = currentContext;
+    threadUsingCPU->context = currentContext;
     if (flag==0){
         flag = 1;
-        AppendFila2(&filaAptos, (void *)usingCPU);
+        AppendFila2(&readyQueue, (void *)threadUsingCPU);
         dispatch();
     }
-
 }
 
 int cjoin(int tid){
