@@ -7,9 +7,11 @@
 int schedulerIsInitialized = 0;
 int schedulerNextTid = 1;
 
-ucontext_t terminatedThreadContext;
+ucontext_t terminatedThreadContext, testContext;
 FILA2 filaAptos;
 TCB_t* usingCPU;
+
+
 
 void createMainContext(){
     TCB_t* mainTCB = malloc(sizeof(TCB_t));
@@ -30,21 +32,17 @@ void SchedulerInitialize(void){
 }
 
 TCB_t* getWinner(int winnerTicket){
-    printf("entrou na getWinner, ticket sorteado: %d\n", winnerTicket);
-    printf("posiciona it no fim da fila: %d\n",LastFila2(&filaAptos));
+    printf("ticket sorteado: %d\n", winnerTicket);
+    LastFila2(&filaAptos);
     TCB_t* lastTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
-    printf("ultimo da fila: %d\n",lastTCB->tid);
     FirstFila2(&filaAptos);
     TCB_t* currentTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
     TCB_t* closestTCB = currentTCB;
     if (!currentTCB) {
         printf("fila vazia");
     }
-    printf("primeiro da lista: %d, ticket %d\n",closestTCB->tid, closestTCB->ticket);
-    int i =0;
+    printf("primeiro da fila: %d, ticket %d\n",currentTCB->tid,currentTCB->ticket);
     while(currentTCB->tid != lastTCB->tid){
-        i++;
-        printf("entrou no while %d vez\n",i);
         NextFila2(&filaAptos);
         currentTCB = (TCB_t*)GetAtIteratorFila2(&filaAptos);
         printf("proximo da fila: %d, ticket %d\n",currentTCB->tid, currentTCB->ticket);
@@ -55,29 +53,25 @@ TCB_t* getWinner(int winnerTicket){
         } else {
             if (isClosest(currentTCB->ticket, closestTCB->ticket, winnerTicket)){
                 closestTCB = currentTCB;
-                printf("novo eh mais proximo\n");
             }
         }
-        if (currentTCB->tid == lastTCB->tid)
-            printf("terminou, vou sair do while\n");
-        else
-            printf("nao terminou");
+        printf("mais proximo: %d da thread %d\n",closestTCB->ticket,closestTCB->tid);
     }
-    printf("saiu do while");
     return closestTCB;
 }
 
 void dispatch(void){
     //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
-    printf("entrou na dispatch\n");
+    printf("dispatcher foi chamado\n");
     int winnerTicket = Random2();
     TCB_t* winnerTCB = getWinner(winnerTicket);
-    printf("winner: %d",winnerTCB->tid);
+    printf("vencedor: thread %d\n",winnerTCB->tid);
     if(findTCB(winnerTCB, &filaAptos)){
         DeleteAtIteratorFila2(&filaAptos);
     }
     usingCPU = winnerTCB;
-    setcontext(&winnerTCB->context);
+    ucontext_t ctxt = winnerTCB->context;
+    setcontext(&ctxt);
 }
 
 int findTCB(TCB_t* tcb, PFILA2 fila){
@@ -103,12 +97,11 @@ int ccreate (void* (*start)(void*), void *arg){
     SchedulerInitialize();
 
     ucontext_t newContext;
-    char* newStack = malloc(sizeof(char));
-    //SIGSTKSZ
+    getcontext(&newContext);
 
     newContext.uc_link          = &terminatedThreadContext;      /* contexto a executar no término */
-    newContext.uc_stack.ss_sp   = newStack;         /* endereço de início da pilha    */
-    newContext.uc_stack.ss_size = sizeof(newStack); /*tamanho da pilha */
+    newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);         /* endereço de início da pilha    */
+    newContext.uc_stack.ss_size = SIGSTKSZ; /*tamanho da pilha */
 
     /* Define a função a ser executada pelo novo fluxo de controle,
      * forcene a quantidade (0, no caso) e os eventuais parâmetros que cada fluxo
@@ -128,18 +121,18 @@ int ccreate (void* (*start)(void*), void *arg){
     return newTCB->tid;
 }
 
-void saveContext(void){
-    printf("entrou na savecontext\n");
+int cyield() {
+    printf("thread %d abdicou da CPU\n",usingCPU->tid);
+    int flag = 0;
     ucontext_t currentContext;
     getcontext(&currentContext);
     usingCPU->context = currentContext;
-}
+    if (flag==0){
+        flag = 1;
+        AppendFila2(&filaAptos, (void *)usingCPU);
+        dispatch();
+    }
 
-int cyield() {
-    printf("entrou na yield\n");
-    saveContext();
-    AppendFila2(&filaAptos, (void *)usingCPU);
-    dispatch();
 }
 
 int cjoin(int tid){
@@ -168,11 +161,13 @@ void barber() {
 }
 
 int main() {
-    int tidBarber, i;
+    int tidBarber, n;
+    getcontext(&testContext);
     tidBarber = ccreate (barber, (void *) NULL);
     printf("criou thread com tid %d\n", tidBarber);
-    for(i=0;i<4;i++){
+    for(n=0;n<4;n++){
         cyield();
-        printf("main ganhou a cpu %d\n",i);
+        printf("main ganhou a cpu, n=%d\n",n);
     }
+    printf("\nFim do programa\n");
 }
