@@ -37,10 +37,8 @@ int ccreate (void* (*start)(void*), void *arg){
     ucontext_t newContext;
     getcontext(&newContext);
 
-    char sss[SIGSTKSZ];
-
-    newContext.uc_link = &dispatcherContext;
-    newContext.uc_stack.ss_sp = sss;
+    newContext.uc_link          = &dispatcherContext;
+    newContext.uc_stack.ss_sp   = malloc(SIGSTKSZ);
     newContext.uc_stack.ss_size = SIGSTKSZ;
 
     makecontext(&newContext, (void (*)(void)) start, 1, arg);
@@ -62,26 +60,34 @@ int cyield() {
 
     printf("\nYield(): Thread %d abdicou da CPU\n", threadUsingCPU->tid);
 
-    AppendFila2(&readyQueue, (void *)threadUsingCPU);
-    threadUsingCPU->state = PROCST_APTO;
-    getcontext(&threadUsingCPU->context);
+    TCB_t *thread = threadUsingCPU;
+    thread->state = PROCST_APTO;
+
+    AppendFila2(&readyQueue, (void *)thread);
     threadUsingCPU = NULL;
-    setcontext(&dispatcherContext);
+    //getcontext(&thread->context);
+    //setcontext(&dispatcherContext);
+
+    swapcontext(&thread->context, &dispatcherContext);
 
     return 0;
 }
 
 int cjoin(int tid) {
     printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
+    TCB_t *thread = threadUsingCPU;
+    thread->state = PROCST_BLOQ;
+
     ThreadJoin* tjoin = malloc(sizeof(ThreadJoin));
     tjoin->waitedTid = tid;
-    tjoin->thread = threadUsingCPU;
+    tjoin->thread = thread;
 
     AppendFila2(&blockedQueue, (void *)tjoin);
-    tjoin->thread->state = PROCST_BLOQ;
-    getcontext(&tjoin->thread->context);
+
     threadUsingCPU = NULL;
-    setcontext(&dispatcherContext);
+    //getcontext(&thread->context);
+    //setcontext(&dispatcherContext);
+    swapcontext(&thread->context, &dispatcherContext);
 
     return 0;
 }
@@ -166,7 +172,7 @@ void SchedulerInitialize(void){
 void* dispatch(void) {
     //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
     printf("\nDispatcher()\n");
-    if(threadUsingCPU != NULL){
+    if(threadUsingCPU){
         printf("Finalizando thread %d\n", threadUsingCPU->tid);
         broadcastThreadEnd(threadUsingCPU->tid);
         free(threadUsingCPU->context.uc_stack.ss_sp);
