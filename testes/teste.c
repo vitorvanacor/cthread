@@ -47,11 +47,8 @@ int    waiting = 0;
 void sleepao() {
      int i = 0;
 
-    printf("\njjjjjjjjjjj-------------------------------------------------------------------------------------------------------\n");
-
      i = rand()%5 + 1;
-     for (; i<0; i--) {
-         printf("\n-------------------------------------------------------------------------------------------------------\n");
+     for (; i>0; i--) {
          cyield();
      }
      return;
@@ -74,13 +71,13 @@ void* barber(void* arg)
      cut_hair();
      csignal(&barbers);
   }
-  printf("SAIU WHILE BARB\n");
+  printf("--------------------------------------------SAIU WHILE BARB\n");
   return;
 }
 
 void* customer(void* arg)
 {
-   while(time(NULL) < end_time+2) {
+   while(time(NULL) < end_time) {
       cwait(&mutex);
       if (waiting < CHAIRS) {
          waiting = waiting + 1;
@@ -94,7 +91,7 @@ void* customer(void* arg)
       }
       sleepao();
     }
-    printf("SAIU WHILE CUST\n");
+    printf("-----------------------------------------SAIU WHILE CUST\n");
     return;
 }
 
@@ -119,6 +116,8 @@ int main(int argc, char **argv)
 
     cjoin(tidBarber);
     cjoin(tidCustomer);
+
+    printf("Relampago Marquinhos\n");
 
     exit(0);
 }

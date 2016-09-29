@@ -31,6 +31,48 @@ TCB_t* threadUsingCPU;
 FILA2 readyQueue;
 FILA2 blockedQueue;
 
+void printFilas() {
+
+    int i=0;
+    FirstFila2(&readyQueue);
+    TCB_t* currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
+    if (!currentTCB){
+        printf("Fila Aptos Vazia\n");
+    }
+    else {
+        printf("---Fila aptos: \nPosicao %d, tid %d\n",i,currentTCB->tid);
+        while(NextFila2(&readyQueue) == 0) {
+            printf("Baaaah\n");
+            if (readyQueue.it == 0) {
+                break;
+            }
+            i++;
+            currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
+            printf("Posicao %d, tid %d\n",i,currentTCB->tid);
+        }
+    }
+    FirstFila2(&readyQueue);
+
+    i=0;
+    FirstFila2(&blockedQueue);
+    ThreadJoin* currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+    if (!currentThreadJoin){
+        printf("Fila Blocked Vazia\n");
+        return; //fila vazia
+    }
+    printf("---Fila blocked: \nPosicao %d, tid %d\n",i,currentThreadJoin->thread->tid);
+    while(NextFila2(&blockedQueue) == 0) {
+        if (blockedQueue.it == 0) {
+            break;
+        }
+        i++;
+        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+        printf("Posicao %d, tid %d\n",i,currentThreadJoin->thread->tid);
+    }
+    FirstFila2(&blockedQueue);
+}
+
+
 int ccreate (void* (*start)(void*), void *arg){
     SchedulerInitialize();
 
@@ -78,12 +120,15 @@ int findTidBlocked(int tid) {
     ThreadJoin* currentThreadJoin;
 
     do {
+        if (blockedQueue.it == 0) {
+            break;
+        }
         currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
 
         if(currentThreadJoin->thread->tid == tid) {
             return 1;
         }
-    } while(NextFila2(&blockedQueue) != 0);
+    } while(NextFila2(&blockedQueue) == 0);
 
     return 0;
 }
@@ -95,13 +140,36 @@ int findTidReady(int tid) {
     TCB_t* currentTCB;
 
     do {
+        if (readyQueue.it == 0) {
+            break;
+        }
         currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
 
         if(currentTCB->tid == tid) {
             return 1;
         }
     }
-    while(NextFila2(&readyQueue) != 0);
+    while(NextFila2(&readyQueue) == 0);
+
+    return 0;
+}
+
+int tidIsWaited (int tid) {
+    if (FirstFila2(&blockedQueue) != 0){
+        return 0; //fila vazia
+    }
+    ThreadJoin* currentThreadJoin;
+
+    do {
+        if (blockedQueue.it == 0) {
+            break;
+        }
+        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+
+        if(currentThreadJoin->waitedTid == tid) {
+            return 1;
+        }
+    } while(NextFila2(&blockedQueue) == 0);
 
     return 0;
 }
@@ -109,7 +177,11 @@ int findTidReady(int tid) {
 int cjoin(int tid) {
     SchedulerInitialize();
     if (!findTidBlocked(tid) && !findTidReady(tid)) {
-        return -1;
+        return -404;
+    }
+
+    if (tidIsWaited(tid)) {
+        return -400;
     }
 
     printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
@@ -137,9 +209,11 @@ int csem_init (csem_t *sem, int count){
 }
 
 int cwait (csem_t *sem){
+    printf("Ronaldo\n");
     SchedulerInitialize();
     sem->count--;
     if (sem->count < 0){
+        printf("Relampago\n");
         if (sem->fila == NULL){
             sem->fila = malloc(sizeof(FILA2));
             CreateFila2(sem->fila);
@@ -157,9 +231,11 @@ int cwait (csem_t *sem){
 }
 
 int csignal (csem_t *sem){
+    printf("FelipeMassa\n");
     SchedulerInitialize();
     sem->count++;
     if (sem->count <= 0){
+        printf("Rubinho\n");
         FirstFila2(sem->fila);
         TCB_t* firstTCB = (TCB_t*)GetAtIteratorFila2(sem->fila);
         DeleteAtIteratorFila2(sem->fila);
@@ -221,11 +297,16 @@ void* dispatch(void) {
         free(threadUsingCPU);
         threadUsingCPU = NULL;
     }
-
+    printFilas();
+    printf("Jorge\n");
     threadUsingCPU = getWinner();
-
+    printf("Jorge2\n");
     findTCB(threadUsingCPU, &readyQueue);
+    printf("Jorge3\n");
     DeleteAtIteratorFila2(&readyQueue);
+    printf("Jorge4\n");
+
+    printFilas();
 
     setcontext(&threadUsingCPU->context);
 
@@ -239,6 +320,9 @@ void broadcastThreadEnd(int tid) {
     ThreadJoin* currentThreadJoin;
 
     do {
+        if (blockedQueue.it == 0) {
+            break;
+        }
         currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
 
         if(currentThreadJoin->waitedTid == tid) {
@@ -249,7 +333,7 @@ void broadcastThreadEnd(int tid) {
             free(currentThreadJoin);
             return;
         }
-    } while(NextFila2(&blockedQueue) != 0);
+    } while(NextFila2(&blockedQueue) == 0);
 }
 
 TCB_t* getWinner() {
@@ -259,8 +343,13 @@ TCB_t* getWinner() {
     TCB_t* currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
     TCB_t* closestTCB = currentTCB;
     //printf("----Primeiro da fila: %d, ticket %d\n",currentTCB->tid,currentTCB->ticket);
-    while(NextFila2(&readyQueue) != 0){
+    while(NextFila2(&readyQueue) == 0){
+        if (readyQueue.it == 0) {
+            break;
+        }
+        printf("Ruperto\n");
         currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
+        printf("Rupertao\n");
         //printf("--Proximo da fila: %d, ticket %d\n",currentTCB->tid, currentTCB->ticket);
         if(currentTCB->ticket == closestTCB->ticket){
             if (currentTCB->tid < closestTCB->tid){
@@ -284,7 +373,10 @@ int findTCB(TCB_t* tcb, PFILA2 fila){
         return 0; //fila vazia
     }
     if (currentTCB == tcb) return 1;
-    while(NextFila2(fila) != 0){
+    while(NextFila2(fila) == 0){
+        if (fila->it == 0) {
+            break;
+        }
         currentTCB = (TCB_t*)GetAtIteratorFila2(fila);
         if (currentTCB == tcb) return 1;
     }
