@@ -1,0 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <ucontext.h>
+#include <support.h>
+#include <cdata.h>
+#include <cthread.h>
+
+int main() {
+    printf("teste\n");
+}
