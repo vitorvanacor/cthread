@@ -47,8 +47,13 @@ int    waiting = 0;
 void sleepao() {
      int i = 0;
 
+    printf("\njjjjjjjjjjj-------------------------------------------------------------------------------------------------------\n");
+
      i = rand()%5 + 1;
-     for (; i<0; i--) cyield();
+     for (; i<0; i--) {
+         printf("\n-------------------------------------------------------------------------------------------------------\n");
+         cyield();
+     }
      return;
 }
 
@@ -97,7 +102,7 @@ int main(int argc, char **argv)
 {
     int tidBarber, tidCustomer;
 
-    end_time=time(NULL)+1;  /*Barbearia fica aberta 120 s */
+    end_time=time(NULL)+10;  /*Barbearia fica aberta 120 s */
     srand((unsigned)time(NULL));
 
     csem_init(&customers, 0);

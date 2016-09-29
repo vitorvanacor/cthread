@@ -71,7 +71,47 @@ int cyield() {
     return 0;
 }
 
+int findTidBlocked(int tid) {
+    if (FirstFila2(&blockedQueue) != 0){
+        return 0; //fila vazia
+    }
+    ThreadJoin* currentThreadJoin;
+
+    do {
+        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+
+        if(currentThreadJoin->thread->tid == tid) {
+            return 1;
+        }
+    } while(NextFila2(&blockedQueue) != 0);
+
+    return 0;
+}
+
+int findTidReady(int tid) {
+    if (FirstFila2(&readyQueue) != 0) {
+        return 0;
+    }
+    TCB_t* currentTCB;
+
+    do {
+        currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
+
+        if(currentTCB->tid == tid) {
+            return 1;
+        }
+    }
+    while(NextFila2(&readyQueue) != 0);
+
+    return 0;
+}
+
 int cjoin(int tid) {
+    SchedulerInitialize();
+    if (!findTidBlocked(tid) && !findTidReady(tid)) {
+        return -1;
+    }
+
     printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
     TCB_t *thread = threadUsingCPU;
     thread->state = PROCST_BLOQ;
@@ -90,12 +130,14 @@ int cjoin(int tid) {
 }
 
 int csem_init (csem_t *sem, int count){
+    SchedulerInitialize();
     sem->count = count;
     sem->fila = NULL;
     return 0;
 }
 
 int cwait (csem_t *sem){
+    SchedulerInitialize();
     sem->count--;
     if (sem->count < 0){
         if (sem->fila == NULL){
@@ -115,6 +157,7 @@ int cwait (csem_t *sem){
 }
 
 int csignal (csem_t *sem){
+    SchedulerInitialize();
     sem->count++;
     if (sem->count <= 0){
         FirstFila2(sem->fila);
@@ -206,7 +249,7 @@ void broadcastThreadEnd(int tid) {
             free(currentThreadJoin);
             return;
         }
-    } while(NextFila2(&readyQueue) != 0);
+    } while(NextFila2(&blockedQueue) != 0);
 }
 
 TCB_t* getWinner() {
