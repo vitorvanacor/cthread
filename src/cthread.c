@@ -105,71 +105,12 @@ int cyield() {
     TCB_t *thread = threadUsingCPU;
     thread->state = PROCST_APTO;
 
-    AppendFila2(&readyQueue, (void *)thread);
+    if (AppendFila2(&readyQueue, (void *)thread) != 0) {
+        return -500;
+    }
     threadUsingCPU = NULL;
 
     swapcontext(&thread->context, &dispatcherContext);
-
-    return 0;
-}
-
-int findTidBlocked(int tid) {
-    if (FirstFila2(&blockedQueue) != 0){
-        return 0; //fila vazia
-    }
-    ThreadJoin* currentThreadJoin;
-
-    do {
-        if (blockedQueue.it == 0) {
-            break;
-        }
-        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
-
-        if(currentThreadJoin->thread->tid == tid) {
-            return 1;
-        }
-    } while(NextFila2(&blockedQueue) == 0);
-
-    return 0;
-}
-
-int findTidReady(int tid) {
-    if (FirstFila2(&readyQueue) != 0) {
-        return 0;
-    }
-    TCB_t* currentTCB;
-
-    do {
-        if (readyQueue.it == 0) {
-            break;
-        }
-        currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
-
-        if(currentTCB->tid == tid) {
-            return 1;
-        }
-    }
-    while(NextFila2(&readyQueue) == 0);
-
-    return 0;
-}
-
-int tidIsWaited (int tid) {
-    if (FirstFila2(&blockedQueue) != 0){
-        return 0; //fila vazia
-    }
-    ThreadJoin* currentThreadJoin;
-
-    do {
-        if (blockedQueue.it == 0) {
-            break;
-        }
-        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
-
-        if(currentThreadJoin->waitedTid == tid) {
-            return 1;
-        }
-    } while(NextFila2(&blockedQueue) == 0);
 
     return 0;
 }
@@ -192,7 +133,9 @@ int cjoin(int tid) {
     tjoin->waitedTid = tid;
     tjoin->thread = thread;
 
-    AppendFila2(&blockedQueue, (void *)tjoin);
+    if (AppendFila2(&blockedQueue, (void *)tjoin) != 0) {
+        return -500;
+    }
 
     threadUsingCPU = NULL;
 
@@ -216,13 +159,17 @@ int cwait (csem_t *sem){
         printf("Relampago\n");
         if (sem->fila == NULL){
             sem->fila = malloc(sizeof(FILA2));
-            CreateFila2(sem->fila);
+            if (CreateFila2(sem->fila) != 0) {
+                return -500;
+            }
         }
 
         TCB_t *thread = threadUsingCPU;
         thread->state = PROCST_BLOQ;
 
-        AppendFila2(sem->fila, (void *)thread);
+        if (AppendFila2(sem->fila, (void *)thread) != 0) {
+            return -500;
+        }
 
         threadUsingCPU = NULL;
         swapcontext(&thread->context, &dispatcherContext);
@@ -238,9 +185,13 @@ int csignal (csem_t *sem){
         printf("Rubinho\n");
         FirstFila2(sem->fila);
         TCB_t* firstTCB = (TCB_t*)GetAtIteratorFila2(sem->fila);
-        DeleteAtIteratorFila2(sem->fila);
+        if (DeleteAtIteratorFila2(sem->fila) != 0) {
+            return -500;
+        }
 
-        AppendFila2(&readyQueue, (void *)firstTCB);
+        if (AppendFila2(&readyQueue, (void *)firstTCB) != 0) {
+            return -500;
+        }
         firstTCB->state = PROCST_APTO;
 
         if(FirstFila2(sem->fila) != 0){
@@ -381,4 +332,65 @@ int findTCB(TCB_t* tcb, PFILA2 fila){
         if (currentTCB == tcb) return 1;
     }
     return 0; //nao encontrou
+}
+
+int findTidBlocked(int tid) {
+    if (FirstFila2(&blockedQueue) != 0){
+        return 0; //fila vazia
+    }
+    ThreadJoin* currentThreadJoin;
+
+    do {
+        if (blockedQueue.it == 0) {
+            break;
+        }
+        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+
+        if(currentThreadJoin->thread->tid == tid) {
+            return 1;
+        }
+    } while(NextFila2(&blockedQueue) == 0);
+
+    return 0;
+}
+
+int findTidReady(int tid) {
+    if (FirstFila2(&readyQueue) != 0) {
+        return 0;
+    }
+    TCB_t* currentTCB;
+
+    do {
+        if (readyQueue.it == 0) {
+            break;
+        }
+        currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
+
+        if(currentTCB->tid == tid) {
+            return 1;
+        }
+    }
+    while(NextFila2(&readyQueue) == 0);
+
+    return 0;
+}
+
+int tidIsWaited (int tid) {
+    if (FirstFila2(&blockedQueue) != 0){
+        return 0; //fila vazia
+    }
+    ThreadJoin* currentThreadJoin;
+
+    do {
+        if (blockedQueue.it == 0) {
+            break;
+        }
+        currentThreadJoin = (ThreadJoin*)GetAtIteratorFila2(&blockedQueue);
+
+        if(currentThreadJoin->waitedTid == tid) {
+            return 1;
+        }
+    } while(NextFila2(&blockedQueue) == 0);
+
+    return 0;
 }

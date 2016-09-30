@@ -27,5 +27,8 @@ void* dispatch(void);
 void broadcastThreadEnd(int tid);
 void SchedulerInitialize(void);
 int findTCB(TCB_t* tcb, PFILA2 fila);
+int tidIsWaited (int tid);
+int findTidReady(int tid);
+int findTidBlocked(int tid);
 
 #endif
