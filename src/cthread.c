@@ -42,7 +42,6 @@ void printFilas() {
     else {
         printf("---Fila aptos: \nPosicao %d, tid %d\n",i,currentTCB->tid);
         while(NextFila2(&readyQueue) == 0) {
-            printf("Baaaah\n");
             if (readyQueue.it == 0) {
                 break;
             }
@@ -90,7 +89,7 @@ int ccreate (void* (*start)(void*), void *arg){
     newTCB->state = PROCST_APTO;
     newTCB->ticket = NEW_TICKET;
     newTCB->context = newContext;
-    printf("\nCreate(): Thread %d criada, ticket: %d\n",newTCB->tid,newTCB->ticket);
+    //printf("\nCreate(): Thread %d criada, ticket: %d\n",newTCB->tid,newTCB->ticket);
 
     AppendFila2(&readyQueue, (void *)newTCB);
 
@@ -100,7 +99,7 @@ int ccreate (void* (*start)(void*), void *arg){
 int cyield() {
     SchedulerInitialize();
 
-    printf("\nYield(): Thread %d abdicou da CPU\n", threadUsingCPU->tid);
+    //printf("\nYield(): Thread %d abdicou da CPU\n", threadUsingCPU->tid);
 
     TCB_t *thread = threadUsingCPU;
     thread->state = PROCST_APTO;
@@ -125,7 +124,7 @@ int cjoin(int tid) {
         return -400;
     }
 
-    printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
+    //printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
     TCB_t *thread = threadUsingCPU;
     thread->state = PROCST_BLOQ;
 
@@ -203,10 +202,10 @@ int csignal (csem_t *sem){
 }
 
 int cidentify(char *name, int size) {
-    char* names = "Vitor Vanacor 233207\nMatheus Pereira xxxxxx";
+    char* names = "Vitor Vanacor 233207\nMatheus Pereira 242247";
     int i = 0;
 
-    if (size > 44) return -1;
+    if (size < 45) return -1;
 
     do {
        name[i] = names[i];
@@ -226,7 +225,7 @@ void SchedulerInitialize(void){
     mainTCB.tid = 0;
     mainTCB.state = PROCST_EXEC;
     mainTCB.ticket = NEW_TICKET;
-    printf("\n---Main Thread criada com Ticket: %d\n", mainTCB.ticket);
+    //printf("\n---Main Thread criada com Ticket: %d\n", mainTCB.ticket);
     threadUsingCPU = &mainTCB;
 
     //Inicializa despachante
@@ -240,24 +239,17 @@ void SchedulerInitialize(void){
 
 void* dispatch(void) {
     //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
-    printf("\nDispatcher()\n");
+    //printf("\nDispatcher()\n");
     if(threadUsingCPU){
-        printf("Finalizando thread %d\n", threadUsingCPU->tid);
+        //printf("Finalizando thread %d\n", threadUsingCPU->tid);
         broadcastThreadEnd(threadUsingCPU->tid);
         free(threadUsingCPU->context.uc_stack.ss_sp);
         free(threadUsingCPU);
         threadUsingCPU = NULL;
     }
-    printFilas();
-    printf("Jorge\n");
     threadUsingCPU = getWinner();
-    printf("Jorge2\n");
     findTCB(threadUsingCPU, &readyQueue);
-    printf("Jorge3\n");
     DeleteAtIteratorFila2(&readyQueue);
-    printf("Jorge4\n");
-
-    printFilas();
 
     setcontext(&threadUsingCPU->context);
 
@@ -279,7 +271,7 @@ void broadcastThreadEnd(int tid) {
         if(currentThreadJoin->waitedTid == tid) {
             currentThreadJoin->thread->state = PROCST_APTO;
             AppendFila2(&readyQueue, (void *)currentThreadJoin->thread);
-            printf("\nThread %d voltou a estar apta\n", currentThreadJoin->thread->tid);
+            //printf("\nThread %d voltou a estar apta\n", currentThreadJoin->thread->tid);
             DeleteAtIteratorFila2(&blockedQueue);
             free(currentThreadJoin);
             return;
@@ -298,16 +290,14 @@ TCB_t* getWinner() {
         if (readyQueue.it == 0) {
             break;
         }
-        printf("Ruperto\n");
         currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
-        printf("Rupertao\n");
         //printf("--Proximo da fila: %d, ticket %d\n",currentTCB->tid, currentTCB->ticket);
         if(currentTCB->ticket == closestTCB->ticket){
             if (currentTCB->tid < closestTCB->tid){
                 closestTCB = currentTCB;
             }
         } else {
-            if (abs(winnerTicket-currentTCB->tid) < abs(winnerTicket-closestTCB->tid)){
+            if (abs(winnerTicket - currentTCB->ticket) < abs(winnerTicket - closestTCB->ticket)){
                 closestTCB = currentTCB;
             }
         }
