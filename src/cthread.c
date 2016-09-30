@@ -205,11 +205,12 @@ int cidentify(char *name, int size) {
     char* names = "Vitor Vanacor 233207\nMatheus Pereira 242247";
     int i = 0;
 
-    if (size < 45) return -1;
+    if (size < 44) return -1;
 
     do {
-       name[i] = names[i];
+        name[i] = names[i]; i++;
     } while (names[i] != '\0');
+
     return 0;
 }
 
