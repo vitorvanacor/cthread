@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <support.h>
-#include <cthread.h>
+#include "../include/support.h"
+#include "../include/cthread.h"
 
 csem_t impressora;
 int alunosOk = 0;

@@ -89,7 +89,7 @@ int ccreate (void* (*start)(void*), void *arg){
     newTCB->state = PROCST_APTO;
     newTCB->ticket = NEW_TICKET;
     newTCB->context = newContext;
-    //printf("\nCreate(): Thread %d criada, ticket: %d\n",newTCB->tid,newTCB->ticket);
+    printf("\nCreate(): Thread %d criada, ticket: %d\n",newTCB->tid,newTCB->ticket);
 
     AppendFila2(&readyQueue, (void *)newTCB);
 
@@ -99,7 +99,7 @@ int ccreate (void* (*start)(void*), void *arg){
 int cyield() {
     SchedulerInitialize();
 
-    //printf("\nYield(): Thread %d abdicou da CPU\n", threadUsingCPU->tid);
+    printf("\nYield(): Thread %d abdicou da CPU\n", threadUsingCPU->tid);
 
     TCB_t *thread = threadUsingCPU;
     thread->state = PROCST_APTO;
@@ -124,7 +124,7 @@ int cjoin(int tid) {
         return -400;
     }
 
-    //printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
+    printf("\nJoin(): Thread %d esperando thread %d\n",threadUsingCPU->tid, tid);
     TCB_t *thread = threadUsingCPU;
     thread->state = PROCST_BLOQ;
 
@@ -151,11 +151,9 @@ int csem_init (csem_t *sem, int count){
 }
 
 int cwait (csem_t *sem){
-    printf("Ronaldo\n");
     SchedulerInitialize();
     sem->count--;
     if (sem->count < 0){
-        printf("Relampago\n");
         if (sem->fila == NULL){
             sem->fila = malloc(sizeof(FILA2));
             if (CreateFila2(sem->fila) != 0) {
@@ -177,11 +175,9 @@ int cwait (csem_t *sem){
 }
 
 int csignal (csem_t *sem){
-    printf("FelipeMassa\n");
     SchedulerInitialize();
     sem->count++;
     if (sem->count <= 0){
-        printf("Rubinho\n");
         FirstFila2(sem->fila);
         TCB_t* firstTCB = (TCB_t*)GetAtIteratorFila2(sem->fila);
         if (DeleteAtIteratorFila2(sem->fila) != 0) {
@@ -226,7 +222,7 @@ void SchedulerInitialize(void){
     mainTCB.tid = 0;
     mainTCB.state = PROCST_EXEC;
     mainTCB.ticket = NEW_TICKET;
-    //printf("\n---Main Thread criada com Ticket: %d\n", mainTCB.ticket);
+    printf("\n---Main Thread criada com Ticket: %d\n", mainTCB.ticket);
     threadUsingCPU = &mainTCB;
 
     //Inicializa despachante
@@ -240,9 +236,9 @@ void SchedulerInitialize(void){
 
 void* dispatch(void) {
     //<Da pra colocar aqui algo testando se a fila eh vazia ou unitaria>
-    //printf("\nDispatcher()\n");
+    printf("\nDispatcher()\n");
     if(threadUsingCPU){
-        //printf("Finalizando thread %d\n", threadUsingCPU->tid);
+        printf("Finalizando thread %d\n", threadUsingCPU->tid);
         broadcastThreadEnd(threadUsingCPU->tid);
         free(threadUsingCPU->context.uc_stack.ss_sp);
         free(threadUsingCPU);
@@ -272,7 +268,7 @@ void broadcastThreadEnd(int tid) {
         if(currentThreadJoin->waitedTid == tid) {
             currentThreadJoin->thread->state = PROCST_APTO;
             AppendFila2(&readyQueue, (void *)currentThreadJoin->thread);
-            //printf("\nThread %d voltou a estar apta\n", currentThreadJoin->thread->tid);
+            printf("\nThread %d voltou a estar apta\n", currentThreadJoin->thread->tid);
             DeleteAtIteratorFila2(&blockedQueue);
             free(currentThreadJoin);
             return;
@@ -282,17 +278,17 @@ void broadcastThreadEnd(int tid) {
 
 TCB_t* getWinner() {
     int winnerTicket = NEW_TICKET;
-    //printf("\nSorteio(): ticket sorteado: %d\n", winnerTicket);
+    printf("\nSorteio(): ticket sorteado: %d\n", winnerTicket);
     FirstFila2(&readyQueue);
     TCB_t* currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
     TCB_t* closestTCB = currentTCB;
-    //printf("----Primeiro da fila: %d, ticket %d\n",currentTCB->tid,currentTCB->ticket);
+    printf("----Primeiro da fila: %d, ticket %d\n",currentTCB->tid,currentTCB->ticket);
     while(NextFila2(&readyQueue) == 0){
         if (readyQueue.it == 0) {
             break;
         }
         currentTCB = (TCB_t*)GetAtIteratorFila2(&readyQueue);
-        //printf("--Proximo da fila: %d, ticket %d\n",currentTCB->tid, currentTCB->ticket);
+        printf("--Proximo da fila: %d, ticket %d\n",currentTCB->tid, currentTCB->ticket);
         if(currentTCB->ticket == closestTCB->ticket){
             if (currentTCB->tid < closestTCB->tid){
                 closestTCB = currentTCB;
@@ -302,9 +298,9 @@ TCB_t* getWinner() {
                 closestTCB = currentTCB;
             }
         }
-        //printf("-Thread %d com ticket %d eh (agora) a mais proxima do ticket sorteado %d\n",closestTCB->tid,closestTCB->ticket,winnerTicket);
+        printf("-Thread %d com ticket %d eh (agora) a mais proxima do ticket sorteado %d\n",closestTCB->tid,closestTCB->ticket,winnerTicket);
     }
-    //printf("Vencedor: thread %d\n", closestTCB->tid);
+    printf("Vencedor: thread %d\n", closestTCB->tid);
     return closestTCB;
 }
 

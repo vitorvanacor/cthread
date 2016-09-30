@@ -14,9 +14,6 @@ all: $(BIN_DIR)cthread.o
 $(BIN_DIR)cthread.o: $(SRC_DIR)cthread.c
 	$(CC) $(CFLAGS) -o $(BIN_DIR)cthread.o -c $(SRC_DIR)cthread.c
 
-teste: $(TST_DIR)teste.c
-	$(CC) $(CFLAGS) -o $(TST_DIR)teste $(TST_DIR)teste.c $(LDFLAGS)
-
 clean:
 	find $(BIN_DIR) $(LIB_DIR) $(TST_DIR) -type f ! -name 'support.o' ! -name "*.c" -delete
 
