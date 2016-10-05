@@ -34,15 +34,15 @@ int main(int argc, char **argv) {
 
     printf("Main printing something\n");
 
-    tid1 = ccreate (function1, NULL);
+    tid1 = ccreate ((void *)function1, NULL);
     if (tid1 < 0 )
        printf("Error creating thread for function 1...\n");
 
-    tid2 = ccreate (function2, NULL);
+    tid2 = ccreate ((void *)function2, NULL);
     if (tid2 < 0 )
        printf("Error creating thread for function 2...\n");
 
-    tid3 = ccreate (function3, NULL);
+    tid3 = ccreate ((void *)function3, NULL);
     if (tid3 < 0 )
        printf("Error creating thread for function 3...\n");
 

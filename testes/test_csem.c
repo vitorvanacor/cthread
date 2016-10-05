@@ -5,25 +5,29 @@
 #include "../include/cthread.h"
 
 csem_t impressora;
+int alunosOk = 0;
 
 void alunoLento(char *nome){
     printf("%s quer usar a impressora.\n",(char*)nome);
     cwait(&impressora);
-    printf("%s imprimindo.\n",(char*)nome);
+    printf("%s imprimindo primeira folha.\n",(char*)nome);
     cyield();
-    printf("%s imprimindo.\n",(char*)nome);
+    printf("%s imprimindo segunda folha.\n",(char*)nome);
     cyield();
     printf("%s terminou de imprimir.\n",(char*)nome);
+    alunosOk++;
     csignal(&impressora);
+
 }
 
 void alunoRapido(char *nome){
     printf("%s quer usar a impressora\n",(char*)nome);
     cwait(&impressora);
-    printf("%s imprimindo.\n",(char*)nome);
+    printf("%s imprimindo sua unica folha.\n",(char*)nome);
     cyield();
     printf("%s terminou de imprimir.\n",(char*)nome);
     csignal(&impressora);
+    alunosOk++;
 }
 
 int main(int argc, char *argv[ ]) {
@@ -34,7 +38,7 @@ int main(int argc, char *argv[ ]) {
     int tidLeonardo = ccreate((void *)alunoLento, "Leonardo");
 
      if (csem_init (&impressora, 2) == 0){
-        printf("\ncsem_init Ok\n");
+        printf("\ncsem_init Ok!\n");
      } else {
         printf ("\nErro em csem_init\n");
      }
@@ -43,15 +47,11 @@ int main(int argc, char *argv[ ]) {
      cjoin(tidRicardo);
      cjoin(tidLuis);
      cjoin(tidLeonardo);
-
-    printf("---Teste cidentify---\n\n");
-    char buffer[50];
-    if (cidentify(buffer, sizeof(buffer)) == 0){
-        printf("%s\n", buffer);
-        printf("\ncidentify Ok.\n");
-    } else{
-        printf("\nErro em cidentify.\n");
-    }
+     if (alunosOk == 4){
+        printf("\nTodos os alunos imprimiram.\ncwait e csignal OK!\n");
+     } else{
+        printf("\nErro em cwait e/ou csignal.\n");
+     }
 
     return 0;
 }
