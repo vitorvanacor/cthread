@@ -22,6 +22,12 @@ typedef struct s_TCB {
 	ucontext_t 	context;	// contexto de execução da thread (SP, PC, GPRs e recursos)
 } TCB_t;
 
+//Estrutura para registrar o aguardo de uma thread pelo termino de outra
+typedef struct {
+    int	waitedTid; 		// identificador da thread sendo esperada
+	TCB_t* thread; 		// thread
+} ThreadJoin;
+
 TCB_t* getWinner();
 void* dispatch(void);
 void broadcastThreadEnd(int tid);
@@ -30,5 +36,7 @@ int findTCB(TCB_t* tcb, PFILA2 fila);
 int tidIsWaited (int tid);
 int findTidReady(int tid);
 int findTidBlocked(int tid);
+void printFilas();
+void debugLog(char* format, ...);
 
 #endif

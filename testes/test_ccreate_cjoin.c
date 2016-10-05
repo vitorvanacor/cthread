@@ -20,7 +20,7 @@ void function1() {
     tid2 = ccreate (function2, NULL);
     if (tid2 < 0 )
        printf("Error creating thread for function 2...\n");
-    else printf("Function 1 creating thread for function 2\n");
+    else printf("Function 1 created thread for function 2\n");
 
     printf("Function 1 joining function 2\n");
     cjoin(2);
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     tid1 = ccreate (function1, NULL);
     if (tid1 < 0 )
        printf("Error creating thread for function 1...\n");
-    else printf("Main creating thread for function 1\n");
+    else printf("Main created thread for function 1\n");
 
     printf("Main joining function 1\n");
     cjoin(1);

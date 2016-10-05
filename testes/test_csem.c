@@ -5,56 +5,44 @@
 #include "../include/cthread.h"
 
 csem_t impressora;
-int alunosOk = 0;
 
-void* alunoLento(void *nome){
-    int i;
-    for(i=0;i<2;i++){
-        printf("%s quer usar a impressora.\n",(char*)nome);
-        cwait(&impressora);
-        printf("%s imprimindo.\n",(char*)nome);
-        cyield();
-        printf("%s imprimindo.\n",(char*)nome);
-        cyield();
-        printf("%s imprimindo.\n",(char*)nome);
-        cyield();
-        printf("%s terminou de imprimir. Imprimiu %d.\n",(char*)nome, i+1);
-        csignal(&impressora);
-    }
-    printf("%s OK.\n",(char*)nome);
-    alunosOk++;
-
+void alunoLento(char *nome){
+    printf("%s quer usar a impressora.\n",(char*)nome);
+    cwait(&impressora);
+    printf("%s imprimindo.\n",(char*)nome);
+    cyield();
+    printf("%s imprimindo.\n",(char*)nome);
+    cyield();
+    printf("%s terminou de imprimir.\n",(char*)nome);
+    csignal(&impressora);
 }
 
-void* alunoRapido(void *nome){
-    int i;
-    for(i=0;i<3;i++){
-        printf("%s quer usar a impressora\n",(char*)nome);
-        cwait(&impressora);
-        printf("%s imprimindo.\n",(char*)nome);
-        cyield();
-        printf("%s terminou de imprimir. Imprimiu %d\n",(char*)nome, i+1);
-        csignal(&impressora);
-    }
-    printf("%s OK.\n",(char*)nome);
-    alunosOk++;
-
+void alunoRapido(char *nome){
+    printf("%s quer usar a impressora\n",(char*)nome);
+    cwait(&impressora);
+    printf("%s imprimindo.\n",(char*)nome);
+    cyield();
+    printf("%s terminou de imprimir.\n",(char*)nome);
+    csignal(&impressora);
 }
 
 int main(int argc, char *argv[ ]) {
     printf("---Teste semaforo---\n\n");
-    ccreate((void *)alunoRapido, (void *)"Jorge");
-    ccreate((void *)alunoRapido, (void *)"Joao");
-    ccreate((void *)alunoLento, (void *)"Ronaldo");
+    int tidRafael = ccreate((void *)alunoRapido, "Rafael");
+    int tidRicardo = ccreate((void *)alunoRapido, "Ricardo");
+    int tidLuis = ccreate((void *)alunoLento, "Luis");
+    int tidLeonardo = ccreate((void *)alunoLento, "Leonardo");
 
-     if (csem_init (&impressora, 1) == 0){
+     if (csem_init (&impressora, 2) == 0){
         printf("\ncsem_init Ok\n");
      } else {
         printf ("\nErro em csem_init\n");
      }
-     while(alunosOk < 3){
-        cyield();
-     }
+
+     cjoin(tidRafael);
+     cjoin(tidRicardo);
+     cjoin(tidLuis);
+     cjoin(tidLeonardo);
 
     printf("---Teste cidentify---\n\n");
     char buffer[50];
